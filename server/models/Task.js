@@ -1,68 +1,75 @@
-const { DataTypes } = require('sequelize');
+const mongoose = require('mongoose');
 
-module.exports = (sequelize) => {
-  const Task = sequelize.define('Task', {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true
-    },
-    title: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        notEmpty: true
-      }
-    },
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-      validate: {
-        notEmpty: true
-      }
-    },
-    progress: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-      validate: {
-        min: 0,
-        max: 100
-      }
-    },
-    status: {
-      type: DataTypes.ENUM('pending', 'in-progress', 'completed'),
-      defaultValue: 'pending'
-    },
-    priority: {
-      type: DataTypes.ENUM('low', 'medium', 'high'),
-      defaultValue: 'medium'
-    },
-    deadline: {
-      type: DataTypes.DATE,
-      allowNull: false
-    },
-    completedAt: {
-      type: DataTypes.DATE,
-      allowNull: true
-    }
-  }, {
-    tableName: 'tasks',
-    timestamps: true,
-    hooks: {
-      beforeSave: async (task) => {
-        // Auto-complete when progress reaches 100%
-        if (task.progress >= 100 && task.status !== 'completed') {
-          task.status = 'completed';
-          task.completedAt = new Date();
-        }
-      }
-    }
-  });
+const taskSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  description: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  assignee: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  assignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  progress: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'in-progress', 'completed'],
+    default: 'pending'
+  },
+  priority: {
+    type: String,
+    enum: ['low', 'medium', 'high'],
+    default: 'medium'
+  },
+  deadline: {
+    type: Date,
+    required: true
+  },
+  completedAt: {
+    type: Date
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
 
-  // Virtual for checking if task is overdue
-  Task.prototype.isOverdue = function() {
-    return this.deadline < new Date() && this.status !== 'completed';
-  };
+// Update the updatedAt field before saving
+taskSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  // Auto-complete when progress reaches 100%
+  if (this.progress >= 100 && this.status !== 'completed') {
+    this.status = 'completed';
+    this.completedAt = Date.now();
+  }
+  next();
+});
 
-  return Task;
-};
+// Virtual for checking if task is overdue
+taskSchema.virtual('isOverdue').get(function() {
+  return this.deadline < new Date() && this.status !== 'completed';
+});
+
+taskSchema.set('toJSON', { virtuals: true });
+
+module.exports = mongoose.model('Task', taskSchema);
