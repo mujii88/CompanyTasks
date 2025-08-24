@@ -15,6 +15,12 @@ const { initializeDatabase } = require('./models');
 
 const app = express();
 
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  const path = require('path');
+  app.use(express.static(path.join(__dirname, '../client/build')));
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -29,6 +35,16 @@ app.use('/api/users', userRoutes);
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Task Management API is running' });
 });
+
+// Serve React app for all non-API routes in production
+if (process.env.NODE_ENV === 'production') {
+  const path = require('path');
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(__dirname, '../client/build/index.html'));
+    }
+  });
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {
