@@ -1,5 +1,6 @@
 const express = require('express');
 const User = require('../models/User');
+const { fileDatabase, usingFileDatabase } = require('../models');
 const { authenticateToken, requireManager } = require('../middleware/auth');
 
 const router = express.Router();
@@ -7,9 +8,15 @@ const router = express.Router();
 // Get all employees (managers only)
 router.get('/employees', authenticateToken, requireManager, async (req, res) => {
   try {
-    const employees = await User.find({ role: 'employee' })
-      .select('name email department createdAt')
-      .sort({ name: 1 });
+    let employees;
+    
+    if (usingFileDatabase()) {
+      employees = await fileDatabase.findEmployees();
+    } else {
+      employees = await User.find({ role: 'employee' })
+        .select('name email department createdAt')
+        .sort({ name: 1 });
+    }
 
     res.json({ employees });
   } catch (error) {

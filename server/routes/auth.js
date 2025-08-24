@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
+const { fileDatabase, usingFileDatabase } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -21,22 +22,42 @@ router.post('/register', [
 
     const { name, email, password, role, department } = req.body;
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+    let user;
+    
+    if (usingFileDatabase()) {
+      // Check if user already exists
+      const existingUser = await fileDatabase.findUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: 'User already exists' });
+      }
+
+      // Create new user
+      user = await fileDatabase.createUser({
+        name,
+        email,
+        password,
+        role,
+        department
+      });
+    } else {
+      // Check if user already exists
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: 'User already exists' });
+      }
+
+      // Create new user
+      const newUser = new User({
+        name,
+        email,
+        password,
+        role,
+        department
+      });
+
+      await newUser.save();
+      user = newUser;
     }
-
-    // Create new user
-    const user = new User({
-      name,
-      email,
-      password,
-      role,
-      department
-    });
-
-    await user.save();
 
     // Generate JWT token
     const token = jwt.sign(
@@ -75,16 +96,33 @@ router.post('/login', [
 
     const { email, password } = req.body;
 
-    // Find user by email
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
+    let user;
+    let isPasswordValid;
+    
+    if (usingFileDatabase()) {
+      // Find user by email
+      user = await fileDatabase.findUserByEmail(email);
+      if (!user) {
+        return res.status(400).json({ message: 'Invalid credentials' });
+      }
 
-    // Check password
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      // Check password
+      isPasswordValid = await fileDatabase.comparePassword(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(400).json({ message: 'Invalid credentials' });
+      }
+    } else {
+      // Find user by email
+      user = await User.findOne({ email });
+      if (!user) {
+        return res.status(400).json({ message: 'Invalid credentials' });
+      }
+
+      // Check password
+      isPasswordValid = await user.comparePassword(password);
+      if (!isPasswordValid) {
+        return res.status(400).json({ message: 'Invalid credentials' });
+      }
     }
 
     // Generate JWT token

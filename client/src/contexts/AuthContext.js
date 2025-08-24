@@ -19,6 +19,11 @@ export const AuthProvider = ({ children }) => {
 
   // Set up axios defaults
   useEffect(() => {
+    // Set base URL for production
+    axios.defaults.baseURL = process.env.NODE_ENV === 'production' 
+      ? 'https://companytasks-api.onrender.com' 
+      : '';
+      
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     } else {

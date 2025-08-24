@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { fileDatabase, usingFileDatabase } = require('../models');
 
 // Middleware to verify JWT token
 const authenticateToken = async (req, res, next) => {
@@ -12,7 +13,13 @@ const authenticateToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId);
+    let user;
+    
+    if (usingFileDatabase()) {
+      user = await fileDatabase.findUserById(decoded.userId);
+    } else {
+      user = await User.findById(decoded.userId);
+    }
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid token' });
@@ -45,8 +52,14 @@ const requireEmployee = (req, res, next) => {
 const canAccessTask = async (req, res, next) => {
   try {
     const taskId = req.params.id;
-    const Task = require('../models/Task');
-    const task = await Task.findById(taskId);
+    let task;
+    
+    if (usingFileDatabase()) {
+      task = await fileDatabase.findTaskById(taskId);
+    } else {
+      const Task = require('../models/Task');
+      task = await Task.findById(taskId);
+    }
 
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
