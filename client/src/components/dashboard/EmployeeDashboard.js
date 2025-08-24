@@ -1,44 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import { CheckCircle, Clock, AlertTriangle, BarChart3 } from 'lucide-react';
 import TaskCard from '../common/TaskCard';
 import TaskModal from '../tasks/TaskModal';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { useTask } from '../../contexts/TaskContext';
 
 const EmployeeDashboard = () => {
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { tasks, loading, updateTask, getTaskStats } = useTask();
   const [editingTask, setEditingTask] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [stats, setStats] = useState({});
 
   useEffect(() => {
-    fetchTasks();
-  }, []);
+    setStats(getTaskStats());
+  }, [tasks]);
 
-  const fetchTasks = async () => {
-    try {
-      const response = await axios.get('/api/tasks');
-      setTasks(response.data.tasks);
-    } catch (error) {
-      console.error('Error fetching tasks:', error);
-      toast.error('Failed to load tasks');
-    } finally {
-      setLoading(false);
-    }
+  const fetchTasks = () => {
+    setStats(getTaskStats());
   };
 
   const handleUpdateTask = async (taskData) => {
-    try {
-      const response = await axios.put(`/api/tasks/${editingTask._id}`, taskData);
-      setTasks(tasks.map(task => 
-        task._id === editingTask._id ? response.data.task : task
-      ));
+    const result = await updateTask(editingTask._id, taskData);
+    if (result.success) {
       setEditingTask(null);
       setShowTaskModal(false);
-      toast.success('Task updated successfully!');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update task');
+      fetchTasks(); // Refresh stats
     }
   };
 
@@ -47,22 +34,9 @@ const EmployeeDashboard = () => {
     setShowTaskModal(true);
   };
 
-  const getTaskStats = () => {
-    const total = tasks.length;
-    const completed = tasks.filter(task => task.status === 'completed').length;
-    const inProgress = tasks.filter(task => task.status === 'in-progress').length;
-    const overdue = tasks.filter(task => 
-      new Date(task.deadline) < new Date() && task.status !== 'completed'
-    ).length;
-
-    return { total, completed, inProgress, overdue };
-  };
-
   if (loading) {
     return <LoadingSpinner />;
   }
-
-  const stats = getTaskStats();
 
   return (
     <div className="space-y-6">

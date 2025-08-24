@@ -19,10 +19,8 @@ export const AuthProvider = ({ children }) => {
 
   // Set up axios defaults
   useEffect(() => {
-    // Set base URL for production
-    axios.defaults.baseURL = process.env.NODE_ENV === 'production' 
-      ? 'https://companytasks-api.onrender.com' 
-      : '';
+    // For now, use localStorage-based authentication since we don't have a backend
+    // This creates a working demo without needing a separate API server
       
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -36,8 +34,16 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       if (token) {
         try {
-          const response = await axios.get('/api/auth/profile');
-          setUser(response.data.user);
+          // Decode mock token to get user data
+          const userData = JSON.parse(atob(token));
+          const users = JSON.parse(localStorage.getItem('companytasks_users') || '[]');
+          const user = users.find(u => u.id === userData.userId);
+          
+          if (user) {
+            setUser(user);
+          } else {
+            logout();
+          }
         } catch (error) {
           console.error('Auth check failed:', error);
           logout();
@@ -51,37 +57,74 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('/api/auth/login', { email, password });
-      const { token: newToken, user: userData } = response.data;
+      // Mock authentication using localStorage
+      const users = JSON.parse(localStorage.getItem('companytasks_users') || '[]');
+      const user = users.find(u => u.email === email);
       
-      setToken(newToken);
-      setUser(userData);
-      localStorage.setItem('token', newToken);
+      if (!user) {
+        toast.error('User not found');
+        return { success: false, message: 'User not found' };
+      }
+      
+      // Simple password check (in real app, this would be hashed)
+      if (user.password !== password) {
+        toast.error('Invalid password');
+        return { success: false, message: 'Invalid password' };
+      }
+      
+      // Generate mock token
+      const mockToken = btoa(JSON.stringify({ userId: user.id, email: user.email, role: user.role }));
+      
+      setToken(mockToken);
+      setUser(user);
+      localStorage.setItem('token', mockToken);
       
       toast.success('Login successful!');
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.message || 'Login failed';
-      toast.error(message);
-      return { success: false, message };
+      toast.error('Login failed');
+      return { success: false, message: 'Login failed' };
     }
   };
 
   const register = async (userData) => {
     try {
-      const response = await axios.post('/api/auth/register', userData);
-      const { token: newToken, user: newUser } = response.data;
+      // Mock registration using localStorage
+      const users = JSON.parse(localStorage.getItem('companytasks_users') || '[]');
       
-      setToken(newToken);
+      // Check if user already exists
+      const existingUser = users.find(u => u.email === userData.email);
+      if (existingUser) {
+        toast.error('User already exists');
+        return { success: false, message: 'User already exists' };
+      }
+      
+      // Create new user
+      const newUser = {
+        id: Date.now().toString(),
+        name: userData.name,
+        email: userData.email,
+        password: userData.password, // In real app, this would be hashed
+        role: userData.role || 'employee',
+        department: userData.department || '',
+        createdAt: new Date().toISOString()
+      };
+      
+      users.push(newUser);
+      localStorage.setItem('companytasks_users', JSON.stringify(users));
+      
+      // Generate mock token
+      const mockToken = btoa(JSON.stringify({ userId: newUser.id, email: newUser.email, role: newUser.role }));
+      
+      setToken(mockToken);
       setUser(newUser);
-      localStorage.setItem('token', newToken);
+      localStorage.setItem('token', mockToken);
       
       toast.success('Registration successful!');
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.message || 'Registration failed';
-      toast.error(message);
-      return { success: false, message };
+      toast.error('Registration failed');
+      return { success: false, message: 'Registration failed' };
     }
   };
 
@@ -95,14 +138,23 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (updates) => {
     try {
-      const response = await axios.put('/api/auth/profile', updates);
-      setUser(response.data.user);
-      toast.success('Profile updated successfully!');
-      return { success: true };
+      // Mock profile update using localStorage
+      const users = JSON.parse(localStorage.getItem('companytasks_users') || '[]');
+      const userIndex = users.findIndex(u => u.id === user.id);
+      
+      if (userIndex !== -1) {
+        users[userIndex] = { ...users[userIndex], ...updates };
+        localStorage.setItem('companytasks_users', JSON.stringify(users));
+        setUser(users[userIndex]);
+        toast.success('Profile updated successfully!');
+        return { success: true };
+      }
+      
+      toast.error('User not found');
+      return { success: false, message: 'User not found' };
     } catch (error) {
-      const message = error.response?.data?.message || 'Profile update failed';
-      toast.error(message);
-      return { success: false, message };
+      toast.error('Profile update failed');
+      return { success: false, message: 'Profile update failed' };
     }
   };
 

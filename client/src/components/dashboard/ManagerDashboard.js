@@ -1,64 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Plus, CheckCircle, Clock, AlertTriangle, BarChart3 } from 'lucide-react';
 import TaskCard from '../common/TaskCard';
 import TaskModal from '../tasks/TaskModal';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { useTask } from '../../contexts/TaskContext';
 
 const ManagerDashboard = () => {
-  const [tasks, setTasks] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [stats, setStats] = useState({});
-  const [loading, setLoading] = useState(true);
+  const { tasks, loading, createTask, updateTask, deleteTask, getTaskStats, getEmployees } = useTask();
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [stats, setStats] = useState({});
+  const [employees, setEmployees] = useState([]);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    // Load data from context
+    setStats(getTaskStats());
+    setEmployees(getEmployees());
+  }, [tasks]);
 
-  const fetchData = async () => {
-    try {
-      const [tasksRes, employeesRes, statsRes] = await Promise.all([
-        axios.get('/api/tasks'),
-        axios.get('/api/users/employees'),
-        axios.get('/api/tasks/stats/overview')
-      ]);
-
-      setTasks(tasksRes.data.tasks);
-      setEmployees(employeesRes.data.employees);
-      setStats(statsRes.data.stats);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
+  const fetchData = () => {
+    // Data is now managed by TaskContext
+    setStats(getTaskStats());
+    setEmployees(getEmployees());
   };
 
   const handleCreateTask = async (taskData) => {
-    try {
-      const response = await axios.post('/api/tasks', taskData);
-      setTasks([response.data.task, ...tasks]);
+    const result = await createTask(taskData);
+    if (result.success) {
       setShowTaskModal(false);
-      toast.success('Task created successfully!');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to create task');
+      fetchData(); // Refresh stats
     }
   };
 
   const handleUpdateTask = async (taskData) => {
-    try {
-      const response = await axios.put(`/api/tasks/${editingTask._id}`, taskData);
-      setTasks(tasks.map(task => 
-        task._id === editingTask._id ? response.data.task : task
-      ));
+    const result = await updateTask(editingTask._id, taskData);
+    if (result.success) {
       setEditingTask(null);
       setShowTaskModal(false);
-      toast.success('Task updated successfully!');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update task');
+      fetchData(); // Refresh stats
     }
   };
 
@@ -67,12 +47,9 @@ const ManagerDashboard = () => {
       return;
     }
 
-    try {
-      await axios.delete(`/api/tasks/${taskId}`);
-      setTasks(tasks.filter(task => task._id !== taskId));
-      toast.success('Task deleted successfully!');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to delete task');
+    const result = await deleteTask(taskId);
+    if (result.success) {
+      fetchData(); // Refresh stats
     }
   };
 
