@@ -1,35 +1,16 @@
 services:
-  # Backend API Service
+  # Full-stack application
   - type: web
-    name: task-management-api
+    name: companytasks-app
     env: node
     plan: free
-    buildCommand: cd server && npm install
-    startCommand: cd server && npm start
+    repo: https://github.com/mujii88/CompanyTasks.git
+    buildCommand: npm run heroku-postbuild
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
       - key: JWT_SECRET
-        generateValue: true
-      - key: MONGODB_URI
-        fromDatabase:
-          name: task-management-db
-          property: connectionString
-
-  # Frontend Service
-  - type: web
-    name: task-management-frontend
-    env: static
-    plan: free
-    buildCommand: cd client && npm install && npm run build
-    staticPublishPath: ./client/build
-    envVars:
-      - key: REACT_APP_API_URL
-        value: https://task-management-api.onrender.com
-
-databases:
-  - name: task-management-db
-    databaseName: taskmanagement
-    plan: free
+        value: task-mgmt-prod-jwt-secret-2024-secure-key-change-in-production
